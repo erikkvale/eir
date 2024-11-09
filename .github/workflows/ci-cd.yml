@@ -4,15 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "app/**"
-      - "docker-compose.yml"
-      - "Dockerfile"
-      - "pyproject.toml"
-      - "mkdocs.yml"
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: write
