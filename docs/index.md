@@ -46,25 +46,25 @@ Here’s what has been implemented so far:
 
 ### Running the Application
 
-1. **Clone the Repository**  
-   ```bash
-   git clone https://github.com/your-repo/eir.git
-   cd eir
-   ```
+- Clone the Repository
+```shell
+git clone https://github.com/your-repo/eir.git && cd eir
+```
 
-2. **Start the Application**  
-   Use the following Makefile target to build and run the application:
-   ```shell
-   make run-app
-   ```
+- Start the Application
+Use the following Makefile target to build and run the application:
+```shell
+make run-app
+```
 
-3. **Access the Application**  
-   Once running, the FastAPI app will be available at `http://localhost:8000`.
+- Access the Application 
+Once running, the FastAPI app will be available at `http://localhost:8000`.
 
-4. **Explore the API**  
-   FastAPI provides interactive API documentation:
-   - Swagger UI: http://localhost:8000/docs
-   - ReDoc: http://localhost:8000/redoc
+#### Explore the API
+FastAPI provides interactive API documentation:
+
+ - Swagger UI: `http://localhost:8000/docs`
+ - ReDoc: `http://localhost:8000/redoc`
 
 ---
 
@@ -78,7 +78,7 @@ This will spin up the required containers, execute the tests, and shut everythin
 
 ---
 
-## Documentation
+## Local Documentation Development
 
 Eir’s documentation is built with MkDocs-Material.
 
