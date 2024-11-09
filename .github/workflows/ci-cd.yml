@@ -26,16 +26,19 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install Docker Compose
+        run: sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+
       - name: Build and Test Application
         run: |
-          docker-compose up --build -d
+          docker compose up --build -d
           sleep 10  # Allow services to initialize
-          docker-compose exec fastapi-app /app/.venv/bin/pytest app/test_main.py
+          docker compose exec fastapi-app /app/.venv/bin/pytest app/test_main.py
         env:
           DATABASE_URL: postgresql://postgres:postgres@db:5432/mydatabase
 
       - name: Stop and Clean Docker Containers
-        run: docker-compose down --volumes
+        run: docker compose down --volumes
 
   deploy-docs:
     name: Deploy Documentation to GitHub Pages
