@@ -35,36 +35,39 @@ Here’s what has been implemented so far:
 - **Documentation**  
   ✅ Beautiful and functional docs built using MkDocs-Material.
 
+- **CI Pipeline with GitHub Actions**  
+  ✅ Build and test  
+  ✅ Docs deployment
+
 ---
 
 ## Quickstart Guide
 
 ### Prerequisites
 
-- Docker and Docker Compose installed.
-- Python 3.11+ (for local testing or development outside Docker).
+!!! Info
+    - Docker and Docker Compose installed.
+    - Python 3.11+ (for local testing or development outside Docker).
 
 ### Running the Application
 
-- Clone the Repository
-```shell
-git clone https://github.com/your-repo/eir.git && cd eir
-```
+1. Clone the Repository  
+  ```
+  git clone https://github.com/erikkvale/eir.git && cd eir
+  ```
 
-- Start the Application
-Use the following Makefile target to build and run the application:
-```shell
-make run-app
-```
+2. Start the Application, use the following Makefile target to build and run the application:  
+  ```
+  make run-app
+  ```
 
-- Access the Application 
-Once running, the FastAPI app will be available at `http://localhost:8000`.
+- Access the Application, once running, the FastAPI app will be available at `http://localhost:8080`.
 
 #### Explore the API
 FastAPI provides interactive API documentation:
 
- - Swagger UI: `http://localhost:8000/docs`
- - ReDoc: `http://localhost:8000/redoc`
+ - Swagger UI: `http://localhost:8080/docs`
+ - ReDoc: `http://localhost:8080/redoc`
 
 ---
 
@@ -86,6 +89,10 @@ To serve the documentation locally:
 ```bash
 make serve-docs
 ```
+
+!!! note
+    Running `make run-app` also serves up the document server, alongside the app and db, if you only need the documentation server use `serve-docs`
+
 The documentation will be available at `http://localhost:8000`.
 
 ---

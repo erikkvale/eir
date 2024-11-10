@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: fastapi-app
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/mydatabase
     depends_on:
@@ -24,6 +24,20 @@ services:
       POSTGRES_DB: mydatabase
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  mkdocs:
+    image: squidfunk/mkdocs-material:latest
+    container_name: mkdocs-server
+    profiles:
+      - docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/docs
+    working_dir: /docs
+    entrypoint: []
+    command: >
+      mkdocs serve -a 0.0.0.0:8000
 
 volumes:
   postgres_data:
