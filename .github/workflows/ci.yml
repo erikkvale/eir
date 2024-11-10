@@ -42,7 +42,7 @@ jobs:
 
       - name: Run pytest
         run: |
-          docker-compose exec fastapi-app pytest
+          docker-compose run fastapi-app /app/.venv/bin/pytest app/test_main.py
 
       - name: Stop and clean up
         if: always()
