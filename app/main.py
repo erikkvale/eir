@@ -27,7 +27,6 @@ app = FastAPI(lifespan=lifespan)
 def login(username: str = Form(...), password: str = Form(...)):
     """
     Login endpoint to generate JWT tokens.
-    Replace this with actual user authentication logic.
     """
     if username == "testuser" and password == "testpassword":
         access_token = create_access_token(data={"sub": username})
