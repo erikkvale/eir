@@ -13,10 +13,10 @@ The name "Eir" originates from Norse mythology, where Eir is a goddess or valkyr
 
 Here’s what has been implemented so far:
 
-???+ bug
+???+ bug "Known Issue or Clarification"
 
-    No explicit relationship between patient and observation tables exists as interpreted from the assessment
-    write-up. Single zip code (02718) and patient id (1419) were specified. Would like to clarify on review and may submit changes on another branch in prep for what I would assume should be related and so a patient's observations can be retrieved via foreign key.
+    No explicit relationship between patient and observation tables exists as interpreted from the assessment descrtipion write-up. Single zip code (02718) and patient id (1419) were specified in examples. Would like to clarify on review, please see this related PR as implementing this relationship: [PR #4](https://github.com/erikkvale/eir/pull/4)
+ 
 
 - **Containerized Deployment**  
   ✅ Configured Docker Compose for deploying the FastAPI app and PostgreSQL database.
