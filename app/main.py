@@ -1,27 +1,14 @@
 import os
 import requests
+import requests
 from typing import Optional, Generator, List
-
-from fastapi import FastAPI, Depends, HTTPException
-from sqlmodel import Field, SQLModel, create_engine, Session, select, and_
+from fastapi import FastAPI, Depends, HTTPException, Form
+from sqlmodel import select, Session, SQLModel
 from contextlib import asynccontextmanager
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mydatabase")
-engine = create_engine(DATABASE_URL, echo=True)
-
-
-class Patient(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    patient_id: str
-    first_name: str
-    gender: str
-    birth_date: str
-
-class Observation(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    patient_id: str
-    resource_type: str
-    status: str
+from app.models import Patient, Observation
+from app.database import get_session, engine
+from app.auth.dependencies import get_current_user
+from app.auth.jwt_handler import create_access_token
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,15 +19,28 @@ async def lifespan(app: FastAPI):
     yield
     print("App shutting down.")
 
+
 app = FastAPI(lifespan=lifespan)
 
-def get_session() -> Generator[Session, None, None]:
-    with Session(engine) as session:
-        yield session
+# AuthN
+@app.post("/token")
+def login(username: str = Form(...), password: str = Form(...)):
+    """
+    Login endpoint to generate JWT tokens.
+    Replace this with actual user authentication logic.
+    """
+    if username == "testuser" and password == "testpassword":
+        access_token = create_access_token(data={"sub": username})
+        return {"access_token": access_token, "token_type": "bearer"}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
 @app.post("/imports/patients/{postal_code}", response_model=dict)
-def fetch_and_store_patients_by_postal_code(postal_code: str, session: Session = Depends(get_session)):
+def fetch_and_store_patients_by_postal_code(
+    postal_code: str, 
+    session: Session = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
     """
     Fetch patient data from the external API and store it in the database
     """
@@ -78,7 +78,11 @@ def fetch_and_store_patients_by_postal_code(postal_code: str, session: Session =
  
 
 @app.post("/imports/observations/{patient_id}", response_model=dict)
-def fetch_and_store_first_observation(patient_id: str, session: Session = Depends(get_session)):
+def fetch_and_store_first_observation(
+    patient_id: str, 
+    session: Session = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
     """
     Fetch the first observation data for a given patient from the external API and store the resourceType and status.
     """
@@ -120,6 +124,7 @@ def search_patients(
     patient_id: Optional[str] = None,
     first_name: Optional[str] = None,
     session: Session = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Search for patients by `patient_id` and/or `first_name`.
@@ -145,7 +150,9 @@ def search_patients(
 
 @app.get("/observations/search", response_model=List[Observation])
 def search_observations(
-    patient_id: Optional[str] = None, session: Session = Depends(get_session)
+    patient_id: Optional[str] = None,
+    session: Session = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Search for observations by `patient_id`.
@@ -160,3 +167,4 @@ def search_observations(
         raise HTTPException(status_code=404, detail="No matching observations found.")
 
     return observations
+
