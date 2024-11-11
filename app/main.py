@@ -1,7 +1,6 @@
 import os
-import requests
-import requests
-from typing import Optional, Generator, List
+import httpx
+from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Form
 from sqlmodel import select, Session, SQLModel, and_
 from contextlib import asynccontextmanager
@@ -24,7 +23,7 @@ app = FastAPI(lifespan=lifespan)
 
 # AuthN
 @app.post("/token")
-def login(username: str = Form(...), password: str = Form(...)):
+async def login(username: str = Form(...), password: str = Form(...)):
     """
     Login endpoint to generate JWT tokens.
     """
@@ -35,49 +34,51 @@ def login(username: str = Form(...), password: str = Form(...)):
 
 
 @app.post("/imports/patients/{postal_code}", response_model=dict)
-def fetch_and_store_patients_by_postal_code(
-    postal_code: str, 
+async def fetch_and_store_patients_by_postal_code(
+    postal_code: str,
     session: Session = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Fetch patient data from the external API and store it in the database
+    Fetch patient data from the external API and store it in the database.
     """
     url = f"https://hapi.fhir.org/baseR5/Patient?address-postalcode={postal_code}"
-    params = {"address-postalcode": postal_code}
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        data = response.json()
 
     saved_patient_ids = []
     for entry in data.get("entry", []):
         resource = entry.get("resource", {})
 
         patient_id = resource.get("id")
-        name = " ".join(resource.get("name", [{}])[0].get("given", [])) + " " + resource.get("name", [{}])[0].get("family", "")
+        given_names = resource.get("name", [{}])[0].get("given", [])
+        first_name = given_names[0] if given_names else ""  # Only the first name
         gender = resource.get("gender")
         birth_date = resource.get("birthDate")
 
         patient = Patient(
             patient_id=patient_id,
-            first_name=name,
+            first_name=first_name.strip(),  # Ensure no trailing spaces
             gender=gender,
             birth_date=birth_date,
         )
         session.add(patient)
-        saved_patient_ids.append(patient.patient_id) # Flagging this as if there is a failure on commit, order of operations check
+        saved_patient_ids.append(patient.patient_id)
 
     session.commit()
 
     return {
         "message": f"Patients from postal code {postal_code} processed successfully.",
         "total_saved": len(saved_patient_ids),
-        "saved_patient_ids": saved_patient_ids
+        "saved_patient_ids": saved_patient_ids,
     }
- 
+
 
 @app.post("/imports/observations/{patient_id}", response_model=dict)
-def fetch_and_store_first_observation(
+async def fetch_and_store_first_observation(
     patient_id: str, 
     session: Session = Depends(get_session),
     current_user: dict = Depends(get_current_user),
@@ -87,9 +88,11 @@ def fetch_and_store_first_observation(
     """
     url = f"https://hapi.fhir.org/baseR5/Observation"
     params = {"subject": f"Patient/{patient_id}"}
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
 
     if data.get("total", 0) == 0 or "entry" not in data:
         return {"message": f"No observations found for patient {patient_id}."}
@@ -117,9 +120,8 @@ def fetch_and_store_first_observation(
     }
 
 
-
 @app.get("/patients/search", response_model=List[Patient])
-def search_patients(
+async def search_patients(
     patient_id: Optional[str] = None,
     first_name: Optional[str] = None,
     session: Session = Depends(get_session),
@@ -148,7 +150,7 @@ def search_patients(
 
 
 @app.get("/observations/search", response_model=List[Observation])
-def search_observations(
+async def search_observations(
     patient_id: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: dict = Depends(get_current_user),
@@ -166,4 +168,3 @@ def search_observations(
         raise HTTPException(status_code=404, detail="No matching observations found.")
 
     return observations
-
