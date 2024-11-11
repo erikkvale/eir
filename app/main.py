@@ -3,7 +3,7 @@ import requests
 import requests
 from typing import Optional, Generator, List
 from fastapi import FastAPI, Depends, HTTPException, Form
-from sqlmodel import select, Session, SQLModel
+from sqlmodel import select, Session, SQLModel, and_
 from contextlib import asynccontextmanager
 from app.models import Patient, Observation
 from app.database import get_session, engine
