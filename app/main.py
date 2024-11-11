@@ -40,35 +40,45 @@ async def fetch_and_store_patients_by_postal_code(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Fetch patient data from the external API and store it in the database.
+    Fetch patient data from the external API and store them in the database.
+    Then, fetch the first observation for each patient and store it.
     """
-    url = f"https://hapi.fhir.org/baseR5/Patient?address-postalcode={postal_code}"
-
+    # Fetch patients from the FHIR API
+    patient_url = f"https://hapi.fhir.org/baseR5/Patient?address-postalcode={postal_code}"
     async with httpx.AsyncClient() as client:
-        response = await client.get(url)
+        response = await client.get(patient_url)
         response.raise_for_status()
-        data = response.json()
+        patients_data = response.json()
 
     saved_patient_ids = []
-    for entry in data.get("entry", []):
+    for entry in patients_data.get("entry", []):
         resource = entry.get("resource", {})
-
         patient_id = resource.get("id")
         given_names = resource.get("name", [{}])[0].get("given", [])
-        first_name = given_names[0] if given_names else ""  # Only the first name
+        first_name = given_names[0] if given_names else ""
         gender = resource.get("gender")
         birth_date = resource.get("birthDate")
 
-        patient = Patient(
-            patient_id=patient_id,
-            first_name=first_name.strip(),  # Ensure no trailing spaces
-            gender=gender,
-            birth_date=birth_date,
-        )
-        session.add(patient)
-        saved_patient_ids.append(patient.patient_id)
+        # Avoid duplicate patient entries
+        existing_patient = session.exec(
+            select(Patient).where(Patient.patient_id == patient_id)
+        ).first()
 
-    session.commit()
+        if not existing_patient:
+            patient = Patient(
+                patient_id=patient_id,
+                first_name=first_name.strip(),
+                gender=gender,
+                birth_date=birth_date,
+            )
+            session.add(patient)
+            session.commit()  # Save to get the patient ID for relationships
+            session.refresh(patient)
+            saved_patient_ids.append(patient.id)
+
+    # Fetch and store observations for each new patient
+    for patient_id in saved_patient_ids:
+        await fetch_and_store_first_observation(patient_id, session)
 
     return {
         "message": f"Patients from postal code {postal_code} processed successfully.",
@@ -77,47 +87,53 @@ async def fetch_and_store_patients_by_postal_code(
     }
 
 
-@app.post("/imports/observations/{patient_id}", response_model=dict)
-async def fetch_and_store_first_observation(
-    patient_id: str, 
-    session: Session = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
+async def fetch_and_store_first_observation(patient_id: int, session: Session):
     """
-    Fetch the first observation data for a given patient from the external API and store the resourceType and status.
+    Fetch the first observation data for a given patient from the external API and store it.
+    If no observation is found, insert an empty observation record.
     """
-    url = f"https://hapi.fhir.org/baseR5/Observation"
-    params = {"subject": f"Patient/{patient_id}"}
+    patient = session.get(Patient, patient_id)
+    if not patient:
+        print(f"Patient with ID {patient_id} not found in the database.")
+        return {"message": f"Patient with ID {patient_id} not found."}
+
+    # Fetch observations for the patient
+    observation_url = "https://hapi.fhir.org/baseR5/Observation"
+    params = {"subject": f"Patient/{patient.patient_id}"}
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, params=params)
+        response = await client.get(observation_url, params=params)
         response.raise_for_status()
-        data = response.json()
+        observations_data = response.json()
 
-    if data.get("total", 0) == 0 or "entry" not in data:
-        return {"message": f"No observations found for patient {patient_id}."}
+    print(f"FHIR API response for patient {patient.patient_id}: {observations_data}")
 
-    # Process only the first entry
-    first_entry = data["entry"][0]
-    resource = first_entry.get("resource", {})
+    # Default values for the observation
+    resource_type = "unknown"
+    status = "empty"
 
-    observation_id = resource.get("id", "")
-    resource_type = resource.get("resourceType", "unknown")
-    status = resource.get("status", "unknown")
+    # Check if observations exist
+    if observations_data.get("total", 0) > 0 and "entry" in observations_data:
+        # Process the first observation if available
+        first_entry = observations_data["entry"][0]
+        resource = first_entry.get("resource", {})
+        resource_type = resource.get("resourceType", "unknown")
+        status = resource.get("status", "unknown")
+    else:
+        print(f"No observations found for patient {patient.patient_id}. Inserting default observation.")
 
+    # Insert the observation (either real or default)
     observation = Observation(
-        patient_id=patient_id,
+        patient_id=patient.id,  # Link observation to the patient
         resource_type=resource_type,
         status=status,
     )
     session.add(observation)
     session.commit()
     session.refresh(observation)
+    print(f"Stored observation for patient {patient.patient_id}: {observation}")
 
-    return {
-        "message": f"First observation for patient {patient_id} processed successfully.",
-        "saved_observation_id": observation.id,
-    }
+
 
 
 @app.get("/patients/search", response_model=List[Patient])
